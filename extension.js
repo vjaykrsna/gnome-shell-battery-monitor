@@ -41,14 +41,18 @@ const BatteryMonitorIndicator = GObject.registerClass({
             'decimal-places', 'Decimal Places', 'The number of decimal places',
             GObject.ParamFlags.READWRITE,
             0, 5, 1),
-        'display-mode': GObject.ParamSpec.string(
+        'display-mode': GObject.ParamSpec.int(
             'display-mode', 'Display Mode', 'The display mode for the panel',
             GObject.ParamFlags.READWRITE,
-            'Both'),
+            0, 2, 2),
         'smoothing-samples': GObject.ParamSpec.int(
             'smoothing-samples', 'Smoothing Samples', 'The number of samples to average',
             GObject.ParamFlags.READWRITE,
             1, 20, 10),
+        'show-rate-unit': GObject.ParamSpec.boolean(
+            'show-rate-unit', 'Show Rate Unit', 'Whether to show the %/h unit in the panel',
+            GObject.ParamFlags.READWRITE,
+            true),
     },
 },
 class BatteryMonitorIndicator extends PanelMenu.Button {
@@ -69,11 +73,13 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         this._settings.bind("decimal-places", this, "decimal-places", Gio.SettingsBindFlags.DEFAULT);
         this._settings.bind("display-mode", this, "display-mode", Gio.SettingsBindFlags.DEFAULT);
         this._settings.bind("smoothing-samples", this, "smoothing-samples", Gio.SettingsBindFlags.DEFAULT);
+        this._settings.bind("show-rate-unit", this, "show-rate-unit", Gio.SettingsBindFlags.DEFAULT);
 
         // Connect to property changes
         this.connect('notify::refreshrate', () => this._startMonitoring());
         this.connect('notify::decimal-places', () => this._update());
         this.connect('notify::display-mode', () => this._update());
+        this.connect('notify::show-rate-unit', () => this._update());
         this.connect('notify::smoothing-samples', () => {
             this._chargingReadings = [];
             this._dischargingReadings = [];
@@ -134,7 +140,8 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
     _updateLabel(power, rate, isCharging) {
         let text = '';
         const powerStr = `${power.toFixed(this['decimal-places'])}W`;
-        const rateStr = `${Math.abs(rate).toFixed(this['decimal-places'])}%`;
+        const rateUnit = this['show-rate-unit'] ? '%/h' : '%';
+        const rateStr = `${Math.abs(rate).toFixed(this['decimal-places'])}${rateUnit}`;
         
         let sign = '';
         if (isCharging) {
@@ -144,17 +151,17 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         }
 
         switch (this['display-mode']) {
-            case 'Watts':
+            case 0: // Watts
                 text = `${sign}${powerStr}`;
                 break;
-            case '%/h':
+            case 1: // %/h
                 text = `${sign}${rateStr}`;
                 break;
-            case 'Both':
+            case 2: // Both
                 text = `${sign}${powerStr} | ${sign}${rateStr}`;
                 break;
             default:
-                text = `${sign}${powerStr}`;
+                text = `${sign}${powerStr} | ${sign}${rateStr}`;
         }
         this._label.set_text(text);
     }
@@ -168,8 +175,8 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         }
         const displayRate = Math.abs(rate);
 
-        this._powerUsageLabel.label.text = `${_('Power usage')}: ${sign}${power.toFixed(this['decimal-places'])} W`;
-        this._percentageRateLabel.label.text = `${_('Rate')}: ${sign}${displayRate.toFixed(this['decimal-places'])} %/h`;
+        this._powerUsageLabel.label.text = `${_('Power usage')}: ${sign}${power.toFixed(this['decimal-places'])}W`;
+        this._percentageRateLabel.label.text = `${_('Rate')}: ${sign}${displayRate.toFixed(this['decimal-places'])}%/h`;
         this._statusLabel.label.text = `${_('Status')}: ${status} (${capacity}%)`;
 
         let time = 0;

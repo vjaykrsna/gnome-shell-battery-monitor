@@ -11,15 +11,20 @@
       <summary>Decimal Places</summary>
       <description>The number of decimal places to show for power and rate values.</description>
     </key>
-    <key name="display-mode" type="s">
-      <default>'Both'</default>
+    <key name="display-mode" type="i">
+      <default>2</default>
       <summary>Display Mode</summary>
-      <description>What to display in the panel: 'Watts', '%/h', or 'Both'.</description>
+      <description>What to display in the panel: 0=Watts, 1=%/h, 2=Both.</description>
     </key>
     <key name="smoothing-samples" type="i">
       <default>10</default>
       <summary>Smoothing Samples</summary>
       <description>The number of readings to average for a smoother display. Higher is smoother but less responsive.</description>
+    </key>
+    <key name="show-rate-unit" type="b">
+      <default>true</default>
+      <summary>Show "%/h" Unit in Panel</summary>
+      <description>Whether to show the "%/h" unit next to the rate value in the panel.</description>
     </key>
   </schema>
 </schemalist>

@@ -65,7 +65,15 @@ export default class BatteryMonitorPreferences extends ExtensionPreferences {
         model: new Gtk.StringList({ strings: ["Watts", "%/h", "Both"] }),
     });
     settingsGroup.add(displayModeRow);
-    settings.bind("display-mode", displayModeRow, "selected-item", Gio.SettingsBindFlags.DEFAULT);
+    settings.bind("display-mode", displayModeRow, "selected", Gio.SettingsBindFlags.DEFAULT);
+
+    // Show Rate Unit Switch
+    const showRateUnitRow = new Adw.SwitchRow({
+        title: _("Show '%/h' Unit"),
+        subtitle: _("Display the '%/h' unit next to the rate value in the panel"),
+    });
+    settingsGroup.add(showRateUnitRow);
+    settings.bind("show-rate-unit", showRateUnitRow, "active", Gio.SettingsBindFlags.DEFAULT);
 
     // About Section
     const aboutGroup = new Adw.PreferencesGroup({
