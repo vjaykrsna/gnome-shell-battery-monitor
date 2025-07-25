@@ -2,6 +2,8 @@
 
 A GNOME Shell extension that displays the current battery power consumption (Watts) and charge/discharge rate (%/hour) in the panel.
 
+---
+
 ## Features
 
 - **Dual Display:** Shows power usage in Watts and/or charge/discharge rate in %/hour.
@@ -22,18 +24,20 @@ Once approved, this extension will be available for one-click installation from 
     git clone https://github.com/vjaykrsna/gnome-shell-battery-monitor.git ~/.local/share/gnome-shell/extensions/battery-monitor@vjay.github.io
     ```
 
-2.  **Restart GNOME Shell:** `reboot` or `login/logout`.
+2.  **Restart GNOME Shell:** Reboot or log out and log back in.
 
 3.  **Enable:** Enable the extension using the Extensions app or by running this command:
     ```bash
     gnome-extensions enable battery-monitor@vjay.github.io
     ```
 
-### Updating
+### Updating a Manual Installation
 
-To update the extension after a manual installation, run the following commands:
-    ```bash
-    cd ~/.local/share/gnome-shell/extensions/battery-monitor@vjay.github.io
-    git pull
-    ```
-    Then restart GNOME Shell.
+To update the extension, navigate to the directory and pull the latest changes:
+```bash
+cd ~/.local/share/gnome-shell/extensions/battery-monitor@vjay.github.io
+git pull
+```
+Then, restart GNOME Shell.
+
+---
