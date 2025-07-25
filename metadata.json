@@ -1,0 +1,13 @@
+{
+    "description": "Monitors battery power consumption and charge/discharge rate.",
+    "name": "Battery Monitor",
+    "settings-schema": "org.gnome.shell.extensions.battery-monitor",
+    "shell-version": [
+        "46",
+        "47",
+        "48"
+    ],
+    "url": "https://github.com/vjaykrsna/gnome-shell-battery-monitor",
+    "uuid": "battery-monitor@vjay.github.io",
+    "version": 2
+}
