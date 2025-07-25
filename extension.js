@@ -106,23 +106,28 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
     }
 
     _update() {
-        if (!this._batteryPath) {
-            this._batteryPath = this._findBatteryPath();
+        try {
+            if (!this._batteryPath) {
+                this._batteryPath = this._findBatteryPath();
+            }
+            if (!this._batteryPath) {
+                this._label.set_text("No battery found");
+                return;
+            }
+
+            const capacity = this._readBatteryFile("capacity");
+            const status = this._readBatteryStatus();
+            const isCharging = status === "Charging";
+
+            const power = this._calculatePower();
+            const rate = this._calculateRate(isCharging, capacity, power);
+
+            this._updateLabel(power, rate, isCharging);
+            this._updateMenu(power, rate, isCharging, capacity, status);
+        } catch (e) {
+            console.error(`[BatteryMonitor] Error during update: ${e}`);
+            this._label.set_text("Error");
         }
-        if (!this._batteryPath) {
-            this._label.set_text("No battery found");
-            return;
-        }
-
-        const capacity = this._readBatteryFile("capacity");
-        const status = this._readBatteryStatus();
-        const isCharging = status === "Charging";
-
-        const power = this._calculatePower();
-        const rate = this._calculateRate(isCharging, capacity, power);
-
-        this._updateLabel(power, rate, isCharging);
-        this._updateMenu(power, rate, isCharging, capacity, status);
     }
 
     _updateLabel(power, rate, isCharging) {
