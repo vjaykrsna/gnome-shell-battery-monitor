@@ -13,7 +13,7 @@ A GNOME Shell extension that displays the current battery power consumption (Wat
 
 ### From extensions.gnome.org (Recommended)
 
-Once approved, this extension will be available for one-click installation from the [GNOME Extensions Website](https://extensions.gnome.org/).
+Once approved, this extension will be available for one-click installation from the [GNOME Extensions Website](https://extensions.gnome.org/extension/8348/battery-monitor/).
 
 ### Manual Installation from GitHub
 
