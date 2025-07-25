@@ -127,8 +127,8 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
 
     _updateLabel(power, rate, isCharging) {
         let text = '';
-        const powerStr = `${power.toFixed(this['decimal-places'])} W`;
-        const rateStr = `${Math.abs(rate).toFixed(this['decimal-places'])} %`;
+        const powerStr = `${power.toFixed(this['decimal-places'])}W`;
+        const rateStr = `${Math.abs(rate).toFixed(this['decimal-places'])}%`;
         const sign = isCharging ? '+' : '−';
 
         switch (this['display-mode']) {
