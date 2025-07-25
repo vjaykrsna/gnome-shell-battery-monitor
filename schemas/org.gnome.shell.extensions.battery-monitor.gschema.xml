@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.battery-monitor" path="/org/gnome/shell/extensions/battery-monitor/">
+    <key name="refreshrate" type="i">
+      <default>5</default>
+      <summary>Refresh Rate</summary>
+      <description>The rate in seconds at which the battery information is updated.</description>
+    </key>
+    <key name="decimal-places" type="i">
+      <default>1</default>
+      <summary>Decimal Places</summary>
+      <description>The number of decimal places to show for power and rate values.</description>
+    </key>
+    <key name="display-mode" type="s">
+      <default>'Both'</default>
+      <summary>Display Mode</summary>
+      <description>What to display in the panel: 'Watts', '%/h', or 'Both'.</description>
+    </key>
+    <key name="smoothing-samples" type="i">
+      <default>10</default>
+      <summary>Smoothing Samples</summary>
+      <description>The number of readings to average for a smoother display. Higher is smoother but less responsive.</description>
+    </key>
+  </schema>
+</schemalist>
