@@ -84,6 +84,7 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         this._batteryPath = null;
         this._chargingReadings = [];
         this._dischargingReadings = [];
+        this._decoder = new TextDecoder();
 
         this._createMenu();
         this._update();
@@ -134,7 +135,13 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         let text = '';
         const powerStr = `${power.toFixed(this['decimal-places'])} W`;
         const rateStr = `${Math.abs(rate).toFixed(this['decimal-places'])} %`;
-        const sign = isCharging ? '+' : '−';
+        
+        let sign = '';
+        if (isCharging) {
+            sign = '+';
+        } else if (power > 0.01) { // Only show discharge sign if power draw is significant
+            sign = '−';
+        }
 
         switch (this['display-mode']) {
             case 'Watts':
@@ -153,7 +160,12 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
     }
 
     _updateMenu(power, rate, isCharging, capacity, status) {
-        const sign = isCharging ? '+' : '−';
+        let sign = '';
+        if (isCharging) {
+            sign = '+';
+        } else if (power > 0.01) { // Only show discharge sign if power draw is significant
+            sign = '−';
+        }
         const displayRate = Math.abs(rate);
 
         this._powerUsageLabel.label.text = `${_('Power usage')}: ${sign}${power.toFixed(this['decimal-places'])} W`;
@@ -240,7 +252,7 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
             const typeFile = Gio.File.new_for_path(`/sys/class/power_supply/${name}/type`);
             if (typeFile.query_exists(null)) {
                 const [success, contents] = typeFile.load_contents(null);
-                if (success && new TextDecoder().decode(contents).trim() === "Battery") {
+                if (success && this._decoder.decode(contents).trim() === "Battery") {
                     return `/sys/class/power_supply/${name}`;
                 }
             }
@@ -259,7 +271,7 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
             const file = Gio.File.new_for_path(filePath);
             const [success, contents] = file.load_contents(null);
             if (success) {
-                return parseInt(new TextDecoder().decode(contents).trim());
+                return parseInt(this._decoder.decode(contents).trim());
             }
         } catch (e) {
             console.error(`Error reading ${fileName}: ${e}`);
@@ -272,7 +284,7 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
             const file = Gio.File.new_for_path(`${this._batteryPath}/status`);
             const [success, contents] = file.load_contents(null);
             if (success) {
-                return new TextDecoder().decode(contents).trim();
+                return this._decoder.decode(contents).trim();
             }
         } catch (e) {
             console.error(`Error reading status: ${e}`);
