@@ -75,7 +75,7 @@ export default class BatteryMonitorPreferences extends ExtensionPreferences {
 
     const aboutRow = new Adw.ActionRow({
         title: _("Battery Monitor"),
-        subtitle: _("This extension is a helps you track power consumption and Charging/Discharging rates."),
+        subtitle: _("This extension helps you track power consumption and charging/discharging rates."),
     });
     aboutGroup.add(aboutRow);
 
