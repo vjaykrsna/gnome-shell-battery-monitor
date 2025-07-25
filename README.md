@@ -29,3 +29,11 @@ Once approved, this extension will be available for one-click installation from 
     gnome-extensions enable battery-monitor@vjay.github.io
     ```
 
+### Updating
+
+To update the extension after a manual installation, run the following commands:
+    ```bash
+    cd ~/.local/share/gnome-shell/extensions/battery-monitor@vjay.github.io
+    git pull
+    ```
+    Then restart GNOME Shell.
