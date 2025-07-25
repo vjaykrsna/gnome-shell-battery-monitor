@@ -127,8 +127,8 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
 
     _updateLabel(power, rate, isCharging) {
         let text = '';
-        const powerStr = `${power.toFixed(this['decimal-places'])}W`;
-        const rateStr = `${Math.abs(rate).toFixed(this['decimal-places'])}%`;
+        const powerStr = `${power.toFixed(this['decimal-places'])} W`;
+        const rateStr = `${Math.abs(rate).toFixed(this['decimal-places'])} %`;
         const sign = isCharging ? '+' : '−';
 
         switch (this['display-mode']) {
@@ -187,13 +187,15 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
 
     _calculateRate(isCharging, capacity, power) {
         let rate = 0;
-        const energyFull = this._readBatteryFile('energy_full_design') || this._readBatteryFile('energy_full');
+        // Prioritize current capacity (energy_full) over design capacity for accuracy.
+        const energyFull = this._readBatteryFile('energy_full') || this._readBatteryFile('energy_full_design');
         if (energyFull > 0) {
             const powerWatts = power;
             const energyFullWh = energyFull / MICROWATTS_PER_WATT;
             rate = (powerWatts / energyFullWh) * 100;
         } else {
-            const chargeFull = this._readBatteryFile('charge_full_design') || this._readBatteryFile('charge_full');
+            // Fallback to charge_full (microamp-hours) * voltage_now (microvolts)
+            const chargeFull = this._readBatteryFile('charge_full') || this._readBatteryFile('charge_full_design');
             const voltage = this._readBatteryFile('voltage_now');
             if (chargeFull > 0 && voltage > 0) {
                 const chargeFullAh = chargeFull / MICROAMPS_PER_AMP;
