@@ -31,61 +31,63 @@ const MICROWATTS_PER_WATT = 1000000;
 const MICROVOLTS_PER_VOLT = 1000000;
 const MICROAMPS_PER_AMP = 1000000;
 
-const BatteryMonitorIndicator = GObject.registerClass(
-  class BatteryMonitorIndicator extends PanelMenu.Button {
+const BatteryMonitorIndicator = GObject.registerClass({
+    Properties: {
+        'refreshrate': GObject.ParamSpec.int(
+            'refreshrate', 'Refresh Rate', 'The refresh rate in seconds',
+            GObject.ParamFlags.READWRITE,
+            1, 60, 5),
+        'decimal-places': GObject.ParamSpec.int(
+            'decimal-places', 'Decimal Places', 'The number of decimal places',
+            GObject.ParamFlags.READWRITE,
+            0, 5, 1),
+        'display-mode': GObject.ParamSpec.string(
+            'display-mode', 'Display Mode', 'The display mode for the panel',
+            GObject.ParamFlags.READWRITE,
+            'Both'),
+        'smoothing-samples': GObject.ParamSpec.int(
+            'smoothing-samples', 'Smoothing Samples', 'The number of samples to average',
+            GObject.ParamFlags.READWRITE,
+            1, 20, 10),
+    },
+},
+class BatteryMonitorIndicator extends PanelMenu.Button {
     _init(extension) {
-      super._init(0.0, _("Battery Monitor"));
-      this._extension = extension;
-      this._settings = this._extension.getSettings();
+        super._init(0.0, _("Battery Monitor"));
+        this._extension = extension;
+        this._settings = this._extension.getSettings();
 
-      // Main label
-      this._label = new St.Label({
-        text: "---",
-        y_align: Clutter.ActorAlign.CENTER,
-      });
-      this.add_child(this._label);
+        // Main label
+        this._label = new St.Label({
+            text: "---",
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this.add_child(this._label);
 
-      // Settings
-      this._settings.bind("refreshrate", this, "refreshrate", Gio.SettingsBindFlags.DEFAULT);
-      this._settings.bind("decimal-places", this, "decimalPlaces", Gio.SettingsBindFlags.DEFAULT);
-      this._settings.bind("display-mode", this, "displayMode", Gio.SettingsBindFlags.DEFAULT);
-      this._settings.bind("smoothing-samples", this, "smoothingSamples", Gio.SettingsBindFlags.DEFAULT);
+        // Settings Binding
+        this._settings.bind("refreshrate", this, "refreshrate", Gio.SettingsBindFlags.DEFAULT);
+        this._settings.bind("decimal-places", this, "decimal-places", Gio.SettingsBindFlags.DEFAULT);
+        this._settings.bind("display-mode", this, "display-mode", Gio.SettingsBindFlags.DEFAULT);
+        this._settings.bind("smoothing-samples", this, "smoothing-samples", Gio.SettingsBindFlags.DEFAULT);
 
-      // Explicitly get the initial values
-      this.refreshrate = this._settings.get_int("refreshrate");
-      this.decimalPlaces = this._settings.get_int("decimal-places");
-      this.displayMode = this._settings.get_string("display-mode");
-      this.smoothingSamples = this._settings.get_int("smoothing-samples");
+        // Connect to property changes
+        this.connect('notify::refreshrate', () => this._startMonitoring());
+        this.connect('notify::decimal-places', () => this._update());
+        this.connect('notify::display-mode', () => this._update());
+        this.connect('notify::smoothing-samples', () => {
+            this._chargingReadings = [];
+            this._dischargingReadings = [];
+            this._update();
+        });
 
-      this._settings.connect("changed::refreshrate", () => {
-          this.refreshrate = this._settings.get_int("refreshrate");
-          this._startMonitoring();
-      });
-      this._settings.connect("changed::decimal-places", () => {
-          this.decimalPlaces = this._settings.get_int("decimal-places");
-          this._update();
-      });
-      this._settings.connect("changed::display-mode", () => {
-          this.displayMode = this._settings.get_string("display-mode");
-          this._update();
-      });
-      this._settings.connect("changed::smoothing-samples", () => {
-          this.smoothingSamples = this._settings.get_int("smoothing-samples");
-          // Reset history on change to apply new smoothing immediately
-          this._chargingReadings = [];
-          this._dischargingReadings = [];
-          this._update();
-      });
+        // Battery variables
+        this._batteryPath = null;
+        this._chargingReadings = [];
+        this._dischargingReadings = [];
 
-      // Battery variables
-      this._batteryPath = null;
-      this._batteryHistory = [];
-      this._chargingReadings = [];
-      this._dischargingReadings = [];
-
-      this._createMenu();
-      this._update();
-      this._startMonitoring();
+        this._createMenu();
+        this._update();
+        this._startMonitoring();
     }
 
     _createMenu() {
@@ -104,32 +106,32 @@ const BatteryMonitorIndicator = GObject.registerClass(
     }
 
     _update() {
-      if (!this._batteryPath) {
-        this._batteryPath = this._findBatteryPath();
-      }
-      if (!this._batteryPath) {
-        this._label.set_text("No battery found");
-        return;
-      }
+        if (!this._batteryPath) {
+            this._batteryPath = this._findBatteryPath();
+        }
+        if (!this._batteryPath) {
+            this._label.set_text("No battery found");
+            return;
+        }
 
-      const capacity = this._readBatteryFile("capacity");
-      const status = this._readBatteryStatus();
-      const isCharging = status === "Charging";
+        const capacity = this._readBatteryFile("capacity");
+        const status = this._readBatteryStatus();
+        const isCharging = status === "Charging";
 
-      const power = this._calculatePower();
-      const rate = this._calculateRate(isCharging, capacity, power);
+        const power = this._calculatePower();
+        const rate = this._calculateRate(isCharging, capacity, power);
 
-      this._updateLabel(power, rate, isCharging);
-      this._updateMenu(power, rate, isCharging, capacity, status);
+        this._updateLabel(power, rate, isCharging);
+        this._updateMenu(power, rate, isCharging, capacity, status);
     }
 
     _updateLabel(power, rate, isCharging) {
         let text = '';
-        const powerStr = `${power.toFixed(this.decimalPlaces)} W`;
-        const rateStr = `${Math.abs(rate).toFixed(this.decimalPlaces)} %`;
+        const powerStr = `${power.toFixed(this['decimal-places'])} W`;
+        const rateStr = `${Math.abs(rate).toFixed(this['decimal-places'])} %`;
         const sign = isCharging ? '+' : '−';
 
-        switch (this.displayMode) {
+        switch (this['display-mode']) {
             case 'Watts':
                 text = `${sign}${powerStr}`;
                 break;
@@ -149,8 +151,8 @@ const BatteryMonitorIndicator = GObject.registerClass(
         const sign = isCharging ? '+' : '−';
         const displayRate = Math.abs(rate);
 
-        this._powerUsageLabel.label.text = `${_('Power usage')}: ${sign}${power.toFixed(this.decimalPlaces)} W`;
-        this._percentageRateLabel.label.text = `${_('Rate')}: ${sign}${displayRate.toFixed(this.decimalPlaces)} %/h`;
+        this._powerUsageLabel.label.text = `${_('Power usage')}: ${sign}${power.toFixed(this['decimal-places'])} W`;
+        this._percentageRateLabel.label.text = `${_('Rate')}: ${sign}${displayRate.toFixed(this['decimal-places'])} %/h`;
         this._statusLabel.label.text = `${_('Status')}: ${status} (${capacity}%)`;
 
         let time = 0;
@@ -174,10 +176,8 @@ const BatteryMonitorIndicator = GObject.registerClass(
     _calculatePower() {
         let power = 0;
         if (GLib.file_test(`${this._batteryPath}/power_now`, GLib.FileTest.EXISTS)) {
-            // power_now is in microwatts
             power = this._readBatteryFile('power_now') / MICROWATTS_PER_WATT;
         } else {
-            // Fallback to current_now (microamps) * voltage_now (microvolts)
             const current = this._readBatteryFile('current_now');
             const voltage = this._readBatteryFile('voltage_now');
             power = (current / MICROAMPS_PER_AMP) * (voltage / MICROVOLTS_PER_VOLT);
@@ -187,14 +187,12 @@ const BatteryMonitorIndicator = GObject.registerClass(
 
     _calculateRate(isCharging, capacity, power) {
         let rate = 0;
-        // energy_full is in microwatt-hours
         const energyFull = this._readBatteryFile('energy_full_design') || this._readBatteryFile('energy_full');
         if (energyFull > 0) {
             const powerWatts = power;
             const energyFullWh = energyFull / MICROWATTS_PER_WATT;
             rate = (powerWatts / energyFullWh) * 100;
         } else {
-            // Fallback to charge_full (microamp-hours) * voltage_now (microvolts)
             const chargeFull = this._readBatteryFile('charge_full_design') || this._readBatteryFile('charge_full');
             const voltage = this._readBatteryFile('voltage_now');
             if (chargeFull > 0 && voltage > 0) {
@@ -214,10 +212,10 @@ const BatteryMonitorIndicator = GObject.registerClass(
 
         if (isCharging) {
             this._chargingReadings.push(rate);
-            if (this._chargingReadings.length > this.smoothingSamples) this._chargingReadings.shift();
+            if (this._chargingReadings.length > this['smoothing-samples']) this._chargingReadings.shift();
         } else {
             this._dischargingReadings.push(rate);
-            if (this._dischargingReadings.length > this.smoothingSamples) this._dischargingReadings.shift();
+            if (this._dischargingReadings.length > this['smoothing-samples']) this._dischargingReadings.shift();
         }
 
         const readings = isCharging ? this._chargingReadings : this._dischargingReadings;
@@ -240,7 +238,6 @@ const BatteryMonitorIndicator = GObject.registerClass(
                 }
             }
         }
-        // Fallback for older systems
         if (GLib.file_test("/sys/class/power_supply/BAT0", GLib.FileTest.IS_DIR)) return "/sys/class/power_supply/BAT0";
         if (GLib.file_test("/sys/class/power_supply/BAT1", GLib.FileTest.IS_DIR)) return "/sys/class/power_supply/BAT1";
         return null;
@@ -295,8 +292,7 @@ const BatteryMonitorIndicator = GObject.registerClass(
       this._stopMonitoring();
       super.destroy();
     }
-  }
-);
+});
 
 export default class BatteryMonitorExtension extends Extension {
   enable() {
