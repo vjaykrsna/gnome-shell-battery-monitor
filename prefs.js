@@ -87,6 +87,18 @@ export default class BatteryMonitorPreferences extends ExtensionPreferences {
     });
     aboutGroup.add(aboutRow);
 
+    const resetButton = new Gtk.Button({
+        label: _("Reset to Defaults"),
+        halign: Gtk.Align.END,
+        margin_top: 10,
+    });
+    resetButton.connect("clicked", () => {
+        settings.list_keys().forEach(key => {
+            settings.reset(key);
+        });
+    });
+    aboutGroup.add(resetButton);
+
     window.add(page);
   }
 }

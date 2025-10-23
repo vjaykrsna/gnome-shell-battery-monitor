@@ -1,1 +1,2 @@
-battery-monitor@vjay.github.io.shell-extension.zip
+*.zip
+schemas/gschemas.compiled

@@ -19,6 +19,8 @@
 import GObject from "gi://GObject";
 import St from "gi://St";
 import Clutter from "gi://Clutter";
+import Gtk from "gi://Gtk";
+import Gdk from "gi://Gdk";
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
 import { Extension, gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
@@ -61,12 +63,22 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         this._extension = extension;
         this._settings = this._extension.getSettings();
 
+        // Icon
+        this._icon = new St.Icon({
+            icon_name: 'battery-missing-symbolic',
+            style_class: 'system-status-icon',
+        });
+
         // Main label
         this._label = new St.Label({
             text: "---",
             y_align: Clutter.ActorAlign.CENTER,
         });
-        this.add_child(this._label);
+
+        const box = new St.BoxLayout({ vertical: false });
+        box.add_child(this._icon);
+        box.add_child(this._label);
+        this.add_child(box);
 
         // Settings Binding
         this._settings.bind("refreshrate", this, "refreshrate", Gio.SettingsBindFlags.DEFAULT);
@@ -108,6 +120,8 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         this.menu.addMenuItem(this._statusLabel);
         this._timeLabel = new PopupMenu.PopupMenuItem(_('Time: ...'));
         this.menu.addMenuItem(this._timeLabel);
+        this._temperatureLabel = new PopupMenu.PopupMenuItem(_('Temperature: ...'));
+        this.menu.addMenuItem(this._temperatureLabel);
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this.menu.addAction(_('Preferences'), () => this._extension.openPreferences());
     }
@@ -129,15 +143,16 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
             const power = this._calculatePower();
             const rate = this._calculateRate(isCharging, capacity, power);
 
-            this._updateLabel(power, rate, isCharging);
+            this._updateLabel(power, rate, isCharging, capacity);
             this._updateMenu(power, rate, isCharging, capacity, status);
+            this._updateTemperature();
         } catch (e) {
             console.error(`[BatteryMonitor] Error during update: ${e}`);
             this._label.set_text("Error");
         }
     }
 
-    _updateLabel(power, rate, isCharging) {
+    _updateLabel(power, rate, isCharging, capacity) {
         let text = '';
         const powerStr = `${power.toFixed(this['decimal-places'])}W`;
         const rateUnit = this['show-rate-unit'] ? '%/h' : '%';
@@ -164,6 +179,58 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
                 text = `${sign}${powerStr} | ${sign}${rateStr}`;
         }
         this._label.set_text(text);
+        this._icon.icon_name = this._getBatteryIconName(capacity, isCharging);
+        this._updateLabelColor(capacity, isCharging);
+    }
+
+    _getBatteryIconName(capacity, isCharging) {
+        let iconName = 'battery-missing-symbolic';
+        const level = Math.floor(capacity / 10) * 10;
+
+        if (isCharging) {
+            if (level <= 10) iconName = 'battery-charge-00-symbolic';
+            else if (level <= 30) iconName = 'battery-charge-20-symbolic';
+            else if (level <= 50) iconName = 'battery-charge-40-symbolic';
+            else if (level <= 70) iconName = 'battery-charge-60-symbolic';
+            else if (level <= 90) iconName = 'battery-charge-80-symbolic';
+            else iconName = 'battery-charge-100-symbolic';
+        } else {
+            if (level <= 10) iconName = 'battery-empty-symbolic';
+            else if (level <= 30) iconName = 'battery-caution-symbolic';
+            else if (level <= 50) iconName = 'battery-good-symbolic';
+            else if (level <= 70) iconName = 'battery-good-symbolic';
+            else if (level <= 90) iconName = 'battery-full-symbolic';
+            else iconName = 'battery-full-symbolic';
+        }
+        return iconName;
+    }
+
+    _updateLabelColor(capacity, isCharging) {
+        this._label.remove_style_class_name('red');
+        this._label.remove_style_class_name('yellow');
+        this._label.remove_style_class_name('green');
+
+        if (isCharging) {
+            this._label.add_style_class_name('green');
+        } else {
+            if (capacity <= 20) {
+                this._label.add_style_class_name('red');
+            } else if (capacity <= 50) {
+                this._label.add_style_class_name('yellow');
+            }
+        }
+    }
+
+    _updateTemperature() {
+        if (!this._batteryPath) {
+            return;
+        }
+        const temp = this._readBatteryFile("temp");
+        if (temp > 0) {
+            this._temperatureLabel.label.text = `${_('Temperature')}: ${temp / 10}°C`;
+        } else {
+            this._temperatureLabel.label.text = `${_('Temperature')}: N/A`;
+        }
     }
 
     _updateMenu(power, rate, isCharging, capacity, status) {
@@ -324,10 +391,23 @@ export default class BatteryMonitorExtension extends Extension {
   enable() {
     this._indicator = new BatteryMonitorIndicator(this);
     Main.panel.addToStatusArea(this.uuid, this._indicator);
+
+    this._cssProvider = new Gtk.CssProvider();
+    this._cssProvider.load_from_path(this.path + '/stylesheet.css');
+    Gtk.StyleContext.add_provider_for_display(
+        Gdk.Display.get_default(),
+        this._cssProvider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    );
   }
 
   disable() {
     this._indicator.destroy();
     this._indicator = null;
+
+    Gtk.StyleContext.remove_provider_for_display(
+        Gdk.Display.get_default(),
+        this._cssProvider
+    );
   }
 }
