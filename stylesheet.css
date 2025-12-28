@@ -1,0 +1,19 @@
+/* stylesheet.css */
+.popup-menu-item.plain-text {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  opacity: 1.0 !important;
+}
+
+.popup-menu-item.plain-text:hover,
+.popup-menu-item.plain-text:active,
+.popup-menu-item.plain-text:focus {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.popup-menu-item.plain-text StLabel {
+  color: inherit;
+}

@@ -19,10 +19,16 @@
 import Adw from "gi://Adw";
 import Gtk from "gi://Gtk";
 import Gio from "gi://Gio";
+import GLib from "gi://GLib";
 import { ExtensionPreferences, gettext as _ } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
+
+import * as Utils from "./utils.js";
 
 export default class BatteryMonitorPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
+    // Find battery path
+    this._batteryPath = Utils.findBatteryPath();
+
     const settings = this.getSettings();
     const page = new Adw.PreferencesPage();
     
@@ -74,6 +80,64 @@ export default class BatteryMonitorPreferences extends ExtensionPreferences {
     });
     settingsGroup.add(showRateUnitRow);
     settings.bind("show-rate-unit", showRateUnitRow, "active", Gio.SettingsBindFlags.DEFAULT);
+
+    // Show Icon Switch
+    const showIconRow = new Adw.SwitchRow({
+        title: _("Show Battery Icon"),
+        subtitle: _("Display a battery icon in the panel"),
+    });
+    settingsGroup.add(showIconRow);
+    settings.bind("show-icon", showIconRow, "active", Gio.SettingsBindFlags.DEFAULT);
+
+    // Use Color Coding Switch
+    const useColorCodingRow = new Adw.SwitchRow({
+        title: _("Use Color Coding"),
+        subtitle: _("Use green for charging and red for low battery"),
+    });
+    settingsGroup.add(useColorCodingRow);
+    settings.bind("use-color-coding", useColorCodingRow, "active", Gio.SettingsBindFlags.DEFAULT);
+
+    // Battery Health Section
+    const batteryHealthGroup = new Adw.PreferencesGroup({
+        title: _("Battery Health"),
+    });
+    page.add(batteryHealthGroup);
+
+    // Battery Health Percentage
+    const health = Utils.getBatteryHealthInfo(this._batteryPath);
+    const healthRow = new Adw.ActionRow({
+        title: _("Battery Health"),
+        subtitle: health ? `${health.percent}% (${health.status})` : _("Unable to calculate health"),
+    });
+    batteryHealthGroup.add(healthRow);
+
+    // Cycle Count
+    const cycleCountRow = new Adw.ActionRow({
+        title: _("Cycle Count"),
+        subtitle: Utils.readBatteryFile(this._batteryPath, "cycle_count") || _("Not supported"),
+    });
+    batteryHealthGroup.add(cycleCountRow);
+
+    // Manufacturer
+    const manufacturerRow = new Adw.ActionRow({
+        title: _("Manufacturer"),
+        subtitle: Utils.readBatteryFile(this._batteryPath, "manufacturer") || _("Not available"),
+    });
+    batteryHealthGroup.add(manufacturerRow);
+
+    // Model
+    const modelRow = new Adw.ActionRow({
+        title: _("Model"),
+        subtitle: Utils.readBatteryFile(this._batteryPath, "model_name") || _("Not available"),
+    });
+    batteryHealthGroup.add(modelRow);
+
+    // Technology
+    const technologyRow = new Adw.ActionRow({
+        title: _("Technology"),
+        subtitle: Utils.readBatteryFile(this._batteryPath, "technology") || _("Not available"),
+    });
+    batteryHealthGroup.add(technologyRow);
 
     // About Section
     const aboutGroup = new Adw.PreferencesGroup({
