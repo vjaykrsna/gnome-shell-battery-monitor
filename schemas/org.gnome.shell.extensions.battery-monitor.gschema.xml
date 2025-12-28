@@ -26,5 +26,15 @@
       <summary>Show "%/h" Unit in Panel</summary>
       <description>Whether to show the "%/h" unit next to the rate value in the panel.</description>
     </key>
+    <key name="show-icon" type="b">
+      <default>true</default>
+      <summary>Show Icon in Panel</summary>
+      <description>Whether to show the battery icon in the panel.</description>
+    </key>
+    <key name="use-color-coding" type="b">
+      <default>true</default>
+      <summary>Use Color Coding</summary>
+      <description>Whether to use red/green colors for battery status in the panel.</description>
+    </key>
   </schema>
 </schemalist>
