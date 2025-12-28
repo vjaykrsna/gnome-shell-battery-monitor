@@ -1,1 +1,13 @@
-battery-monitor@vjay.github.io.shell-extension.zip
+# Build artifacts
+*.zip
+schemas/gschemas.compiled
+
+# IDE and development files
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
