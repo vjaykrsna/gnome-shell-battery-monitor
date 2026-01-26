@@ -11,6 +11,6 @@
   ],
   "url": "https://github.com/vjaykrsna/gnome-shell-battery-monitor",
   "uuid": "battery-monitor@vjay.github.io",
-  "version": 3,
+  "version": 4,
   "stylesheet": "stylesheet.css"
 }

@@ -73,6 +73,9 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         this._extension = extension;
         this._settings = this._extension.getSettings();
         this._batteryService = new BatteryService();
+        this._lastExtraInfoAt = 0;
+        this._cachedVoltage = null;
+        this._cachedHealth = null;
 
         // Layout container
         this._box = new St.BoxLayout({ style_class: 'panel-status-menu-box' });
@@ -118,10 +121,17 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         this._startMonitoring();
     }
 
-    _setupFileMonitor() {
+    async _setupFileMonitor() {
+        if (!this._batteryService.batteryPath) {
+            this._batteryService.batteryPath = await Utils.findBatteryPath();
+        }
         if (!this._batteryService.batteryPath) return;
 
         try {
+            if (this._monitor) {
+                this._monitor.cancel();
+                this._monitor = null;
+            }
             const statusFile = Gio.File.new_for_path(`${this._batteryService.batteryPath}/status`);
             this._monitor = statusFile.monitor_file(Gio.FileMonitorFlags.NONE, null);
             this._monitor.connect('changed', (m, f, other, eventType) => {
@@ -156,10 +166,9 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
 
     _addMenuItem(text) {
         const item = new PopupMenu.PopupBaseMenuItem({
-            reactive: true,
+            reactive: false,
             can_focus: false,
         });
-        item.activate = () => {};
         item.add_style_class_name('plain-text');
         const label = new St.Label({ text });
         item.add_child(label);
@@ -167,9 +176,9 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         return label;
     }
 
-    _update() {
+    async _update() {
         try {
-            const batteryData = this._batteryService.getBatteryData(this['smoothing-samples']);
+            const batteryData = await this._batteryService.getBatteryData(this['smoothing-samples']);
             if (!batteryData) {
                 this._label.set_text(this._batteryService.batteryPath ? "Error" : "No battery");
                 return;
@@ -179,7 +188,7 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
 
             this._updateIcon(isCharging, capacity);
             this._updateLabel(power, rate, isCharging);
-            this._updateMenu(power, rate, isCharging, capacity, status);
+            await this._updateMenu(power, rate, isCharging, capacity, status);
         } catch (e) {
             console.error(`[BatteryMonitor] Error during update: ${e}`);
             this._label.set_text("Error");
@@ -237,7 +246,7 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         this._label.set_text(text);
     }
 
-    _updateMenu(power, rate, isCharging, capacity, status) {
+    async _updateMenu(power, rate, isCharging, capacity, status) {
         const decimalPlaces = this['decimal-places'];
         const sign = isCharging ? '+' : (power > POWER_SIGNIFICANCE_THRESHOLD ? '−' : '');
         const displayRate = Math.abs(rate);
@@ -257,13 +266,25 @@ class BatteryMonitorIndicator extends PanelMenu.Button {
         }
         this._timeLabel.text = `${_('Time')}: ${timeText}`;
 
-        // Extra info
-        const voltage = Utils.readBatteryInt(this._batteryService.batteryPath, 'voltage_now') / 1000000;
-        this._voltageLabel.text = `${_('Voltage')}: ${voltage.toFixed(2)}V`;
+        // Extra info (cached to reduce I/O)
+        const now = GLib.get_monotonic_time();
+        const cacheIntervalUs = 30 * 1000000; // 30s
+        if (!this._lastExtraInfoAt || (now - this._lastExtraInfoAt) >= cacheIntervalUs) {
+            const voltage = await Utils.readBatteryInt(this._batteryService.batteryPath, 'voltage_now');
+            this._cachedVoltage = Number.isFinite(voltage) ? voltage : null;
 
-        const health = Utils.getBatteryHealthInfo(this._batteryService.batteryPath);
-        if (health) {
-            this._healthLabel.text = `${_('Health')}: ${health.percent}% (${health.status})`;
+            this._cachedHealth = await Utils.getBatteryHealthInfo(this._batteryService.batteryPath);
+            this._lastExtraInfoAt = now;
+        }
+
+        if (this._cachedVoltage !== null) {
+            this._voltageLabel.text = `${_('Voltage')}: ${(this._cachedVoltage / 1000000).toFixed(2)}V`;
+        } else {
+            this._voltageLabel.text = `${_('Voltage')}: --`;
+        }
+
+        if (this._cachedHealth) {
+            this._healthLabel.text = `${_('Health')}: ${this._cachedHealth.percent}% (${this._cachedHealth.status})`;
         } else {
             this._healthLabel.text = `${_('Health')}: Unknown`;
         }

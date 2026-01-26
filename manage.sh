@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # manage.sh - Utility script for GNOME Extension management
-# Usage: ./manage.sh [pack|install|logs|clean]
+# Usage: ./manage.sh [pack|install|compile|logs|clean]
 
 UUID=$(grep -Po '(?<="uuid": ")[^"]*' metadata.json)
 VERSION=$(grep -Po '(?<="version": )[^,]*' metadata.json)
@@ -10,8 +10,6 @@ INSTALL_PATH="$HOME/.local/share/gnome-shell/extensions/$UUID"
 
 function pack() {
     echo "Packing extension into $ZIP_NAME..."
-    # Compile schemas just in case
-    glib-compile-schemas schemas/
     
     # Create zip excluding development files
     zip -r "$ZIP_NAME" . -x "*.git*" "manage.sh" "*.zip" "README.md" ".vscode/*"
@@ -20,11 +18,29 @@ function pack() {
 
 function install() {
     echo "Installing extension to $INSTALL_PATH..."
+    
+    # If we are already in the install path, don't delete our own .git!
+    if [ "$(realpath .)" = "$(realpath "$INSTALL_PATH")" ]; then
+        echo "Already in install path. Skipping file copy and cleanup."
+        compile
+        return
+    fi
+
     mkdir -p "$INSTALL_PATH"
     cp -r . "$INSTALL_PATH"
     # Remove dev files from install path
     rm -rf "$INSTALL_PATH/.git" "$INSTALL_PATH/manage.sh" "$INSTALL_PATH/*.zip"
+    
+    # Compile schemas in the install path
+    glib-compile-schemas "$INSTALL_PATH/schemas/"
+    
     echo "Installed. Please restart GNOME Shell (Alt+F2, r, Enter) or log out/in."
+}
+
+function compile() {
+    echo "Compiling schemas..."
+    glib-compile-schemas schemas/
+    echo "Done."
 }
 
 function logs() {
@@ -45,6 +61,9 @@ case "$1" in
     install)
         install
         ;;
+    compile)
+        compile
+        ;;
     logs)
         logs
         ;;
@@ -52,7 +71,7 @@ case "$1" in
         clean
         ;;
     *)
-        echo "Usage: $0 {pack|install|logs|clean}"
+        echo "Usage: $0 {pack|install|compile|logs|clean}"
         exit 1
         ;;
 esac

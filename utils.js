@@ -12,47 +12,76 @@ export function decode(contents) {
 }
 
 export function findBatteryPath() {
-    const basePath = '/sys/class/power_supply';
-    const powerSupplyDir = Gio.File.new_for_path(basePath);
-    try {
-        const enumerator = powerSupplyDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-        let fileInfo;
-        while ((fileInfo = enumerator.next_file(null))) {
-            const name = fileInfo.get_name();
-            const path = `${basePath}/${name}`;
-            const typeFile = Gio.File.new_for_path(`${path}/type`);
-            if (typeFile.query_exists(null)) {
-                const [success, contents] = typeFile.load_contents(null);
-                if (success && decode(contents).trim() === 'Battery') {
-                    return path;
+    return new Promise((resolve) => {
+        const basePath = '/sys/class/power_supply';
+        const powerSupplyDir = Gio.File.new_for_path(basePath);
+        try {
+            const enumerator = powerSupplyDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+            let fileInfo;
+            const checkNext = () => {
+                fileInfo = enumerator.next_file(null);
+                if (!fileInfo) {
+                    enumerator.close(null);
+                    resolve(null);
+                    return;
                 }
-            }
+                const name = fileInfo.get_name();
+                const path = `${basePath}/${name}`;
+                const typeFile = Gio.File.new_for_path(`${path}/type`);
+                if (typeFile.query_exists(null)) {
+                    typeFile.load_contents_async(null, (source, result) => {
+                        try {
+                            const [success, contents] = source.load_contents_finish(result);
+                            if (success && decode(contents).trim() === 'Battery') {
+                                enumerator.close(null);
+                                resolve(path);
+                                return;
+                            }
+                        } catch (e) {
+                            // Continue
+                        }
+                        checkNext();
+                    });
+                } else {
+                    checkNext();
+                }
+            };
+            checkNext();
+        } catch (e) {
+            resolve(null);
         }
-    } catch (e) {
-        console.error(`[BatteryMonitor] Error finding battery path: ${e}`);
-    }
-    return null;
+    });
 }
 
 export function readBatteryFile(batteryPath, fileName) {
-    if (!batteryPath) return null;
-    try {
-        const file = Gio.File.new_for_path(`${batteryPath}/${fileName}`);
-        const [success, contents] = file.load_contents(null);
-        return success ? decode(contents).trim() : null;
-    } catch (e) {
-        return null;
-    }
+    return new Promise((resolve) => {
+        if (!batteryPath) {
+            resolve(null);
+            return;
+        }
+        try {
+            const file = Gio.File.new_for_path(`${batteryPath}/${fileName}`);
+            file.load_contents_async(null, (source, result) => {
+                try {
+                    const [success, contents] = source.load_contents_finish(result);
+                    resolve(success ? decode(contents).trim() : null);
+                } catch (e) {
+                    resolve(null);
+                }
+            });
+        } catch (e) {
+            resolve(null);
+        }
+    });
 }
 
 export function readBatteryInt(batteryPath, fileName) {
-    const val = readBatteryFile(batteryPath, fileName);
-    return val ? parseInt(val) : 0;
+    return readBatteryFile(batteryPath, fileName).then(val => val ? parseInt(val) : 0);
 }
 
-export function getBatteryHealthInfo(batteryPath) {
-    const currentFull = readBatteryInt(batteryPath, "charge_full") || readBatteryInt(batteryPath, "energy_full");
-    const designFull = readBatteryInt(batteryPath, "charge_full_design") || readBatteryInt(batteryPath, "energy_full_design");
+export async function getBatteryHealthInfo(batteryPath) {
+    const currentFull = await readBatteryInt(batteryPath, "charge_full") || await readBatteryInt(batteryPath, "energy_full");
+    const designFull = await readBatteryInt(batteryPath, "charge_full_design") || await readBatteryInt(batteryPath, "energy_full_design");
 
     if (!currentFull || !designFull) return null;
 

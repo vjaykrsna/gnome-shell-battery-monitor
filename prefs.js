@@ -19,15 +19,14 @@
 import Adw from "gi://Adw";
 import Gtk from "gi://Gtk";
 import Gio from "gi://Gio";
-import GLib from "gi://GLib";
 import { ExtensionPreferences, gettext as _ } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
 import * as Utils from "./utils.js";
 
 export default class BatteryMonitorPreferences extends ExtensionPreferences {
-  fillPreferencesWindow(window) {
+  async fillPreferencesWindow(window) {
     // Find battery path
-    this._batteryPath = Utils.findBatteryPath();
+    this._batteryPath = await Utils.findBatteryPath();
 
     const settings = this.getSettings();
     const page = new Adw.PreferencesPage();
@@ -104,7 +103,7 @@ export default class BatteryMonitorPreferences extends ExtensionPreferences {
     page.add(batteryHealthGroup);
 
     // Battery Health Percentage
-    const health = Utils.getBatteryHealthInfo(this._batteryPath);
+    const health = await Utils.getBatteryHealthInfo(this._batteryPath);
     const healthRow = new Adw.ActionRow({
         title: _("Battery Health"),
         subtitle: health ? `${health.percent}% (${health.status})` : _("Unable to calculate health"),
@@ -112,30 +111,34 @@ export default class BatteryMonitorPreferences extends ExtensionPreferences {
     batteryHealthGroup.add(healthRow);
 
     // Cycle Count
+    const cycleCount = await Utils.readBatteryFile(this._batteryPath, "cycle_count");
     const cycleCountRow = new Adw.ActionRow({
         title: _("Cycle Count"),
-        subtitle: Utils.readBatteryFile(this._batteryPath, "cycle_count") || _("Not supported"),
+        subtitle: cycleCount || _("Not supported"),
     });
     batteryHealthGroup.add(cycleCountRow);
 
     // Manufacturer
+    const manufacturer = await Utils.readBatteryFile(this._batteryPath, "manufacturer");
     const manufacturerRow = new Adw.ActionRow({
         title: _("Manufacturer"),
-        subtitle: Utils.readBatteryFile(this._batteryPath, "manufacturer") || _("Not available"),
+        subtitle: manufacturer || _("Not available"),
     });
     batteryHealthGroup.add(manufacturerRow);
 
     // Model
+    const model = await Utils.readBatteryFile(this._batteryPath, "model_name");
     const modelRow = new Adw.ActionRow({
         title: _("Model"),
-        subtitle: Utils.readBatteryFile(this._batteryPath, "model_name") || _("Not available"),
+        subtitle: model || _("Not available"),
     });
     batteryHealthGroup.add(modelRow);
 
     // Technology
+    const technology = await Utils.readBatteryFile(this._batteryPath, "technology");
     const technologyRow = new Adw.ActionRow({
         title: _("Technology"),
-        subtitle: Utils.readBatteryFile(this._batteryPath, "technology") || _("Not available"),
+        subtitle: technology || _("Not available"),
     });
     batteryHealthGroup.add(technologyRow);
 

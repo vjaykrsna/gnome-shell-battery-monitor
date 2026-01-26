@@ -11,21 +11,25 @@ const MICROAMPS_PER_AMP = 1000000;
 
 export class BatteryService {
     constructor() {
-        this.batteryPath = Utils.findBatteryPath();
+        this.batteryPath = null; // Will be set asynchronously later
         this._chargingReadings = [];
         this._dischargingReadings = [];
+        this._lastCharging = null;
     }
 
-    getBatteryData(smoothingSamples) {
+    async getBatteryData(smoothingSamples) {
+        if (!this.batteryPath) {
+            this.batteryPath = await Utils.findBatteryPath();
+        }
         if (!this.batteryPath) return null;
 
         try {
-            const capacity = Utils.readBatteryInt(this.batteryPath, 'capacity');
-            const status = Utils.readBatteryFile(this.batteryPath, 'status') || 'Unknown';
+            const capacity = await Utils.readBatteryInt(this.batteryPath, 'capacity');
+            const status = await Utils.readBatteryFile(this.batteryPath, 'status') || 'Unknown';
             const isCharging = status === 'Charging';
 
-            const power = this._calculatePower();
-            const rate = this._calculateRate(isCharging, capacity, power, smoothingSamples);
+            const power = await this._calculatePower();
+            const rate = await this._calculateRate(isCharging, capacity, power, smoothingSamples);
 
             return { capacity, status, power, rate, isCharging };
         } catch (e) {
@@ -34,15 +38,15 @@ export class BatteryService {
         }
     }
 
-    _calculatePower() {
+    async _calculatePower() {
         let power = 0;
         try {
-            const powerNow = Utils.readBatteryInt(this.batteryPath, 'power_now');
+            const powerNow = await Utils.readBatteryInt(this.batteryPath, 'power_now');
             if (powerNow > 0) {
                 power = powerNow / MICROWATTS_PER_WATT;
             } else {
-                const current = Utils.readBatteryInt(this.batteryPath, 'current_now');
-                const voltage = Utils.readBatteryInt(this.batteryPath, 'voltage_now');
+                const current = await Utils.readBatteryInt(this.batteryPath, 'current_now');
+                const voltage = await Utils.readBatteryInt(this.batteryPath, 'voltage_now');
                 power = (current / MICROAMPS_PER_AMP) * (voltage / MICROVOLTS_PER_VOLT);
             }
         } catch (e) {
@@ -51,17 +55,22 @@ export class BatteryService {
         return power;
     }
 
-    _calculateRate(isCharging, capacity, power, smoothingSamples) {
+    async _calculateRate(isCharging, capacity, power, smoothingSamples) {
         let rate = 0;
         try {
-            rate = this._calculateRateFromEnergy(power);
+            rate = await this._calculateRateFromEnergy(power);
             if (rate === 0) {
-                rate = this._calculateRateFromCharge(power);
+                rate = await this._calculateRateFromCharge(power);
             }
 
             if (!isCharging) {
                 rate = -rate;
             }
+
+            if (this._lastCharging !== null && this._lastCharging !== isCharging) {
+                this.resetReadings();
+            }
+            this._lastCharging = isCharging;
 
             this._updateSmoothingReadings(rate, isCharging, smoothingSamples);
             rate = this._getSmoothedRate(isCharging);
@@ -71,20 +80,26 @@ export class BatteryService {
         return rate;
     }
 
-    _calculateRateFromEnergy(power) {
-        const energyFull = Utils.readBatteryInt(this.batteryPath, 'energy_full') || Utils.readBatteryInt(this.batteryPath, 'energy_full_design');
-        if (energyFull > 0) {
-            const energyFullWh = energyFull / MICROWATTS_PER_WATT;
+    async _calculateRateFromEnergy(power) {
+        const energyFull = await Utils.readBatteryInt(this.batteryPath, 'energy_full');
+        const energyFullDesign = await Utils.readBatteryInt(this.batteryPath, 'energy_full_design');
+        const energyFullValue = energyFull || energyFullDesign;
+        if (energyFullValue > 0) {
+            const energyFullWh = energyFullValue / MICROWATTS_PER_WATT;
             return (power / energyFullWh) * 100;
         }
         return 0;
     }
 
-    _calculateRateFromCharge(power) {
-        const chargeFull = Utils.readBatteryInt(this.batteryPath, 'charge_full') || Utils.readBatteryInt(this.batteryPath, 'charge_full_design');
-        const voltage = Utils.readBatteryInt(this.batteryPath, 'voltage_now');
-        if (chargeFull > 0 && voltage > 0) {
-            const chargeFullAh = chargeFull / MICROAMPS_PER_AMP;
+    async _calculateRateFromCharge(power) {
+        const [chargeFull, chargeFullDesign, voltage] = await Promise.all([
+            Utils.readBatteryInt(this.batteryPath, 'charge_full'),
+            Utils.readBatteryInt(this.batteryPath, 'charge_full_design'),
+            Utils.readBatteryInt(this.batteryPath, 'voltage_now')
+        ]);
+        const chargeFullValue = chargeFull || chargeFullDesign;
+        if (chargeFullValue > 0 && voltage > 0) {
+            const chargeFullAh = chargeFullValue / MICROAMPS_PER_AMP;
             const voltageV = voltage / MICROVOLTS_PER_VOLT;
             const energyFullCalcWh = chargeFullAh * voltageV;
             if (energyFullCalcWh > 0) {
